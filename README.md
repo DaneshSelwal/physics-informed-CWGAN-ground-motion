@@ -2,7 +2,7 @@
 
 A **Conditional Wasserstein GAN with Gradient Penalty (CWGAN-GP)** that learns to predict earthquake **Spectral Acceleration (SA)** from seismological parameters, augmented with a **physics-informed monotonic distance-attenuation penalty**.
 
-This is **Phase 1** of a multi-phase research project developed in collaboration with **IIT Madras**.
+This is **Phase 1** of a multi-phase research project developed in collaboration with **IIT Mandi**.
 
 ## Overview
 
