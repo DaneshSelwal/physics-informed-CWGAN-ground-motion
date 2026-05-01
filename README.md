@@ -8,14 +8,15 @@ This is **Phase 1** of a multi-phase research project developed in collaboration
 
 Ground Motion Models (GMMs) are essential in seismic hazard analysis for predicting the intensity of earthquake shaking at a site. This project replaces traditional empirical GMMs with a generative model that captures the full conditional distribution of Spectral Acceleration.
 
-**Generator input:** earthquake metadata `(Mw, Rrup, Ztor, Vs30)` + spectral period `T` + latent noise `z`
-**Generator output:** predicted `log(SA)` (natural log of Spectral Acceleration)
+**Generator input:** earthquake metadata `(Mw, Rrup, Ztor, Vs30)` + tectonic one-hot vector `(interplate, intraplate)` + spectral period `T` + latent noise `z`
+**Generator output:** predicted `log10(SA)` (base-10 log of Spectral Acceleration)
 
 ### Key Design Choices
 
 - **WGAN-GP training** with gradient penalty (lambda_GP = 10) and 5:1 critic-to-generator update ratio for stable training
 - **Physics-informed monotonic penalty** (lambda_mono = 10) enforces the physical constraint that SA must decrease with increasing rupture distance (Rrup)
-- **Period Embedding MLP** — a shared 2-layer network maps the 1D log(Period) to a 16-dimensional representation used by both Generator and Critic
+- **Tectonic-type conditioning** — `Inter_intra_flag` is converted into a 2D one-hot vector so the model can distinguish interplate and intraplate events
+- **Period Embedding MLP** — a shared 2-layer network maps the 1D `log10(Period)` to a 16-dimensional representation used by both Generator and Critic
 - **Residual blocks with LayerNorm** — both Generator and Critic use pre-activation residual blocks (2 x ResBlock(128))
 
 ## Architecture
@@ -24,22 +25,22 @@ Ground Motion Models (GMMs) are essential in seismic hazard analysis for predict
 
 | Component  | Parameters |
 |------------|-----------|
-| Generator  | 74,545    |
-| Critic     | 70,577    |
+| Generator  | 74,801    |
+| Critic     | 70,833    |
 
 ## Dataset
 
 **NGA-Subduction (NGA-Sub)** — a widely used strong-motion database in earthquake engineering.
 
 - **Source:** `nga_subduction.xlsx` (10,239 records x 48 columns)
-- **Conditioning variables:** Mw (magnitude), Rrup (rupture distance), Ztor (depth to top of rupture), Vs30 (site shear-wave velocity)
+- **Conditioning variables:** Mw (magnitude), Rrup (rupture distance), Ztor (depth to top of rupture), Vs30 (site shear-wave velocity), plus a one-hot tectonic category from `Inter_intra_flag`
 - **Target:** Spectral Acceleration at 25 periods from PGA (T=0) to T=10s
 - **Working dataset:** 255,975 samples after melting to long format (one row per record-period pair)
 - **Train/Test split:** 80/20 (204,780 / 51,195 samples)
 
 ## Results
 
-Training for 100 epochs with batch size 2048, Adam optimizer (lr=1e-4, betas=(0.5, 0.9)).
+Training is configured for 100 epochs with batch size 2048 and Adam optimizer `(lr=1e-4, betas=(0.5, 0.9))`.
 
 | Loss Curves | Real vs Predicted |
 |:-----------:|:-----------------:|
@@ -49,7 +50,9 @@ Training for 100 epochs with batch size 2048, Adam optimizer (lr=1e-4, betas=(0.
 |:-------------------:|:-------------------------------:|
 | ![Residuals](residuals_vs_period.png) | ![Response Spectra](response_spectra_event.png) |
 
-The monotonicity penalty converges to near zero (~0.0001), confirming the physics constraint is well-satisfied.
+The updated notebook evaluates errors in `log10(SA)` space and plots response spectra back in the original `SA` scale.
+
+Note: the committed `.pth` checkpoints and `.png` figures in this repo were generated before the latest teacher-review updates. Re-run the notebook to regenerate artifacts that reflect the new one-hot tectonic input and `log10(SA)` target.
 
 ## Project Structure
 
@@ -107,7 +110,7 @@ After training completes, the following artifacts are saved for downstream use (
 |------|-------------|
 | `global_G.pth` | Generator state dict |
 | `global_D.pth` | Critic state dict |
-| `condition_scaler.pkl` | Fitted StandardScaler for the 5 conditioning features |
+| `condition_scaler.pkl` | Fitted StandardScaler for the 5 continuous conditioning features (`Mw`, `log(Rrup)`, `Ztor`, `log(Vs30)`, `log10(Period)`) |
 
 ## License
 
